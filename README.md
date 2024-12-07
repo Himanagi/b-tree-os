@@ -2,10 +2,10 @@
 
 Interactive B-Tree Index File Manager:
 
-This project implements an interactive program that creates and manages index files using a B-tree data structure. The program allows users to:
+This project is my implementation of an interactive B-Tree index file anager. It uses a B-tree data structure to manage and store key-value pairs in an organized and efficient way. The program offers basic functionalities like creating, searching,and managing index files, all while adhering to constraints like limited memory and file-based storage. While the project may not include all possible features, it reflects my understanding and effort to tackle a complex problem using the knowledge I’ve gained so far.
 
 -Create, open, and manage index files.
--Insert and search key-value pairs.
+-Insert and serch key-value pairs.
 -Print or export the B-tree contents.
 -Load key-value pairs from a file.
 
@@ -43,6 +43,7 @@ usage:
 
 
 future improvements:
+-work more on functioanlity anf usablity
 -have a delete operation for the B-tree.
 -Optimize file I/O operations for better performance.
 -add comprehensive unit tests for all functionalities.
