@@ -1,44 +1,8 @@
-#session3: Implemented basic B-Tree structure.
-#-Added BTree and BTreeNode classes.
-#-supports insertion and node splitting.
+#session 4: Fixed root splitting logic.
+#Added `split_node` method to handle node splits.
+#updated `insert` to handle root splitting correctly.
 
-import struct
-from index_file import IndexFile
-
-class BTreeNode:
-    MAX_KEYS = 19
-
-    def __init__(self, block_id, parent_id=0):
-        self.block_id = block_id
-        self.parent_id = parent_id
-        self.keys = []
-        self.values = []
-        self.children = [0] * (self.MAX_KEYS + 1)
-
-    def is_full(self):
-        return len(self.keys) == self.MAX_KEYS
-
-    def serialize(self):
-        data = struct.pack(">Q", self.block_id)
-        data += struct.pack(">Q", self.parent_id)
-        data += struct.pack(">Q", len(self.keys))
-        data += b''.join(struct.pack(">Q", k) for k in self.keys) + b'\x00' * (152 - len(self.keys) * 8)
-        data += b''.join(struct.pack(">Q", v) for v in self.values) + b'\x00' * (152 - len(self.values) * 8)
-        data += b''.join(struct.pack(">Q", c) for c in self.children)
-        return data
-
-    @staticmethod
-    def deserialize(data):
-        block_id, parent_id, num_keys = struct.unpack(">QQQ", data[:24])
-        keys = list(struct.unpack(">19Q", data[24:176]))
-        values = list(struct.unpack(">19Q", data[176:328]))
-        children = list(struct.unpack(">20Q", data[328:488]))
-        node = BTreeNode(block_id, parent_id)
-        node.keys = [k for k in keys if k != 0]
-        node.values = [v for v in values if v != 0]
-        node.children = children
-        return node
-
+#date: DEC7, time 12;40 AM
 
 class BTree:
     def __init__(self, index_file):
@@ -55,6 +19,29 @@ class BTree:
     def save_node(self, node):
         self.index_file.write_node(node.block_id, node.serialize())
 
+    def split_node(self, node):
+        # Split the current node and return the new node
+        mid_index = len(node.keys) // 2
+        mid_key = node.keys[mid_index]
+        mid_value = node.values[mid_index]
+
+        #create a new node with the second half of keys/values
+        new_block_id = self.index_file.allocate_block()
+        new_node = BTreeNode(new_block_id, node.parent_id)
+        new_node.keys = node.keys[mid_index + 1:]
+        new_node.values = node.values[mid_index + 1:]
+        new_node.children = node.children[mid_index + 1:]
+
+        # Update the original node to keep only the first half
+        node.keys = node.keys[:mid_index]
+        node.values = node.values[:mid_index]
+        node.children = node.children[:mid_index + 1]
+
+        self.save_node(node)
+        self.save_node(new_node)
+
+        return mid_key, mid_value, new_node.block_id
+
     def insert(self, key, value):
         if self.root is None:
             block_id = self.index_file.allocate_block()
@@ -65,10 +52,47 @@ class BTree:
             self.index_file.write_node(0, self.index_file.read_node(0))  # Update header
             self.save_node(self.root)
         else:
-            # Simplified logic; full B-Tree logic includes traversing and splitting.
-            if self.root.is_full():
-                print("Root splitting not yet implemented.")
-            else:
-                self.root.keys.append(key)
-                self.root.values.append(value)
-                self.save_node(self.root)
+            current_node = self.root
+            # Simplified logic for navigating and inserting into the tree
+            while current_node.children[0] != 0:  # If not a leaf node
+                for i, k in enumerate(current_node.keys):
+                    if key < k:
+                        child_block_id = current_node.children[i]
+                        break
+                else:
+                    child_block_id = current_node.children[len(current_node.keys)]
+                current_node = BTreeNode.deserialize(self.index_file.read_node(child_block_id))
+
+            # Insert the key into the leaf node
+            current_node.keys.append(key)
+            current_node.values.append(value)
+            current_node.keys.sort()
+            current_node.values.sort()
+            self.save_node(current_node)
+
+            # Handle splitting if necessary
+            while current_node.is_full():
+                mid_key, mid_value, new_block_id = self.split_node(current_node)
+
+                if current_node == self.root:
+                    # If splitting the root, create a new root
+                    new_root_block_id = self.index_file.allocate_block()
+                    new_root = BTreeNode(new_root_block_id)
+                    new_root.keys = [mid_key]
+                    new_root.values = [mid_value]
+                    new_root.children[0] = current_node.block_id
+                    new_root.children[1] = new_block_id
+
+                    self.root = new_root
+                    self.index_file.root = new_root_block_id
+                    self.save_node(new_root)
+                    break
+                else:
+                    # Update parent node
+                    parent_block_id = current_node.parent_id
+                    parent_node = BTreeNode.deserialize(self.index_file.read_node(parent_block_id))
+                    parent_node.keys.append(mid_key)
+                    parent_node.values.append(mid_value)
+                    parent_node.children[parent_node.keys.index(mid_key) + 1] = new_block_id
+                    self.save_node(parent_node)
+                    current_node = parent_node

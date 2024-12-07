@@ -1,9 +1,6 @@
-#session 3: Added B-Tree integration
-#supports insert and basic file operations.
-# future sessions will refine B-Tree logic.
+# Session 4:added debugging print statements for testing root splitting.
 
-from index_file import IndexFile
-from btree import BTree
+#date: DEC7, time 12;40 AM
 
 def main():
     index = None
@@ -14,6 +11,7 @@ def main():
         print("CREATE - Create a new index file")
         print("OPEN - Open an existing index file")
         print("INSERT - Insert a key-value pair")
+        print("PRINT - Print the current B-Tree structure")
         print("QUIT - Exit the program")
         command = input("Enter a command: ").strip().lower()
 
@@ -44,6 +42,15 @@ def main():
             key = int(input("Enter key (unsigned integer): ").strip())
             value = int(input("Enter value (unsigned integer): ").strip())
             btree.insert(key, value)
+
+        elif command == "print":
+            if btree is None or btree.root is None:
+                print("No B-Tree loaded.")
+            else:
+                print("Root Node:")
+                print(f"Keys: {btree.root.keys}")
+                print(f"Values: {btree.root.values}")
+                print(f"Children: {btree.root.children}")
 
         elif command == "quit":
             print("Exiting...")
